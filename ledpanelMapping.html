@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>8×8像素画布 / 8×8 Pixel Canvas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background: #222; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; }
+    h2 { text-align: center; margin-bottom: 18px; }
+    #canvas { display: block; margin: 18px auto; background: #111; border-radius: 8px; touch-action: none; cursor: pointer;}
+    .upload-btns { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px;}
+    .upload-btns label { background: #b85c5c; color: #fff; border-radius: 6px; padding: 8px 18px; cursor: pointer; }
+    .upload-btns input { display: none; }
+    .tip { text-align: center; color: #aaa; font-size: 0.98em; }
+    .slider-group { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;}
+    .slider-group label { font-size: 0.98em; }
+    .slider-group input[type=range] { width: 120px; }
+    .video-controls { text-align: center; margin-bottom: 10px; }
+    .video-controls button { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 18px; font-size: 1em; margin: 0 6px; }
+    .video-controls button:active { background: #a67c52; }
+    video { display: none; }
+    .error { color: #ffb3b3; text-align: center; margin: 8px 0; }
+    .bilingual { font-size: 0.98em; color: #f7cac9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>
+      8×8像素画布<br>
+      <span class="bilingual">8×8 Pixel Canvas</span>
+    </h2>
+    <div class="upload-btns">
+      <label>
+        上传图片<br><span class="bilingual">Upload Image</span>
+        <input type="file" accept="image/*" id="imgInput">
+      </label>
+      <label>
+        上传视频<br><span class="bilingual">Upload Video</span>
+        <input type="file" accept="video/*,.mp4,.webm,.ogg,.avi,.mov,.mkv,.flv" id="videoInput">
+      </label>
+    </div>
+    <div class="slider-group">
+      <label>缩放<br><span class="bilingual">Scale</span></label>
+      <input type="range" id="scaleSlider" min="0.2" max="3" step="0.01" value="1">
+      <span id="scaleVal">1.00</span>
+    </div>
+    <div class="video-controls" id="videoControls" style="display:none;">
+      <button id="playBtn">播放<br><span class="bilingual">Play</span></button>
+      <button id="pauseBtn">暂停<br><span class="bilingual">Pause</span></button>
+    </div>
+    <canvas id="canvas" width="320" height="320"></canvas>
+    <video id="video" crossorigin="anonymous" playsinline webkit-playsinline></video>
+    <div class="error" id="errorMsg"></div>
+    <div class="tip">
+      支持多种视频格式。鼠标在画布上左右移动可对比原图与像素化效果。<br>
+      <span class="bilingual">
+        Multiple video formats supported. Move your mouse horizontally on the canvas to compare the original and pixelated image.
+      </span>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 8;
+    const cellSize = canvas.width / gridSize;
+
+    let img = null;
+    let video = document.getElementById('video');
+    let isVideo = false;
+    let imgObj = { x: 0, y: 0, scale: 1 };
+    let isDragging = false, startX, startY;
+    let animationId = null;
+    let errorMsg = document.getElementById('errorMsg');
+    let showCompare = false;
+    let compareX = canvas.width; // 鼠标横坐标，决定原图覆盖范围
+
+    // 缩放滑块
+    const scaleSlider = document.getElementById('scaleSlider');
+    const scaleVal = document.getElementById('scaleVal');
+    scaleSlider.addEventListener('input', function() {
+      imgObj.scale = parseFloat(this.value);
+      scaleVal.textContent = imgObj.scale.toFixed(2);
+      draw();
+    });
+
+    // 上传图片
+    document.getElementById('imgInput').addEventListener('change', function(e) {
+      errorMsg.textContent = "";
+      const file = e.target.files[0];
+      if (!file) return;
+      isVideo = false;
+      img = new Image();
+      img.onload = function() {
+        imgObj.scale = 1;
+        scaleSlider.value = 1;
+        scaleVal.textContent = "1.00";
+        imgObj.x = (canvas.width - img.width) / 2;
+        imgObj.y = (canvas.height - img.height) / 2;
+        draw();
+      };
+      img.src = URL.createObjectURL(file);
+      document.getElementById('videoControls').style.display = "none";
+      video.pause();
+      cancelAnimationFrame(animationId);
+    });
+
+    // 上传视频
+    document.getElementById('videoInput').addEventListener('change', function(e) {
+      errorMsg.textContent = "";
+      const file = e.target.files[0];
+      if (!file) return;
+      isVideo = true;
+      img = null;
+      video.src = URL.createObjectURL(file);
+      video.load();
+      video.currentTime = 0;
+      video.oncanplay = function() {
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+          errorMsg.textContent = "视频无法读取帧，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。\nVideo frame cannot be read. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).";
+          return;
+        }
+        imgObj.scale = 1;
+        scaleSlider.value = 1;
+        scaleVal.textContent = "1.00";
+        imgObj.x = (canvas.width - video.videoWidth) / 2;
+        imgObj.y = (canvas.height - video.videoHeight) / 2;
+        document.getElementById('videoControls').style.display = "";
+        draw();
+      };
+      video.onerror = function() {
+        errorMsg.textContent = "视频加载失败，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。\nVideo load failed. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).";
+      };
+    });
+
+    // 拖动图片/视频
+    function getPointer(e) {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      } else {
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+    }
+    canvas.addEventListener('mousedown', function(e) {
+      if (!img && !isVideo) return;
+      const {x: mx, y: my} = getPointer(e);
+      const iw = (isVideo ? video.videoWidth : img.width) * imgObj.scale;
+      const ih = (isVideo ? video.videoHeight : img.height) * imgObj.scale;
+      if (mx >= imgObj.x && mx <= imgObj.x + iw && my >= imgObj.y && my <= imgObj.y + ih) {
+        isDragging = true;
+        startX = mx - imgObj.x;
+        startY = my - imgObj.y;
+      }
+    });
+    canvas.addEventListener('mousemove', function(e) {
+      if ((!img && !isVideo) || !isDragging) return;
+      const {x: mx, y: my} = getPointer(e);
+      imgObj.x = mx - startX;
+      imgObj.y = my - startY;
+      draw();
+    });
+    canvas.addEventListener('mouseup', function() { isDragging = false; });
+    canvas.addEventListener('mouseleave', function() { isDragging = false; });
+
+    // 触摸
+    canvas.addEventListener('touchstart', function(e) {
+      if (!img && !isVideo) return;
+      const {x: mx, y: my} = getPointer(e);
+      const iw = (isVideo ? video.videoWidth : img.width) * imgObj.scale;
+      const ih = (isVideo ? video.videoHeight : img.height) * imgObj.scale;
+      if (mx >= imgObj.x && mx <= imgObj.x + iw && my >= imgObj.y && my <= imgObj.y + ih) {
+        isDragging = true;
+        startX = mx - imgObj.x;
+        startY = my - imgObj.y;
+      }
+    });
+    canvas.addEventListener('touchmove', function(e) {
+      if ((!img && !isVideo) || !isDragging) return;
+      e.preventDefault();
+      const {x: mx, y: my} = getPointer(e);
+      imgObj.x = mx - startX;
+      imgObj.y = my - startY;
+      draw();
+    }, { passive: false });
+    canvas.addEventListener('touchend', function() { isDragging = false; });
+
+    // 鼠标滑动对比
+    canvas.addEventListener('mousemove', function(e) {
+      if (!img && !isVideo) return;
+      if (isDragging) return; // 拖动时不触发对比
+      showCompare = true;
+      compareX = getPointer(e).x;
+      draw();
+    });
+    canvas.addEventListener('mouseleave', function() {
+      showCompare = false;
+      draw();
+    });
+    canvas.addEventListener('touchmove', function(e) {
+      if (!img && !isVideo) return;
+      if (isDragging) return;
+      showCompare = true;
+      compareX = getPointer(e).x;
+      draw();
+    });
+    canvas.addEventListener('touchend', function() {
+      showCompare = false;
+      draw();
+    });
+
+    // 视频播放控制
+    document.getElementById('playBtn').onclick = function() {
+      if (video.src) {
+        video.play();
+        startVideoLoop();
+      }
+    };
+    document.getElementById('pauseBtn').onclick = function() {
+      if (video.src) {
+        video.pause();
+        cancelAnimationFrame(animationId);
+      }
+    };
+
+    // 视频帧绘制
+    function startVideoLoop() {
+      function loop() {
+        if (isVideo && !video.paused && !video.ended && video.videoWidth > 0 && video.videoHeight > 0) {
+          draw();
+          animationId = requestAnimationFrame(loop);
+        }
+      }
+      loop();
+    }
+
+    video.addEventListener('play', function() {
+      startVideoLoop();
+    });
+    video.addEventListener('pause', function() {
+      cancelAnimationFrame(animationId);
+    });
+    video.addEventListener('seeked', function() {
+      draw();
+    });
+
+    // 绘制函数
+    function draw() {
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let source = null, sw = 0, sh = 0;
+      if (img) {
+        source = img;
+        sw = img.width;
+        sh = img.height;
+      } else if (isVideo && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+        source = video;
+        sw = video.videoWidth;
+        sh = video.videoHeight;
+      }
+      if (source) {
+        // 先画像素化
+        ctx.save();
+        // 画像素化网格
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = gridSize;
+        tempCanvas.height = gridSize;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.fillStyle = "#111";
+        tempCtx.fillRect(0, 0, gridSize, gridSize);
+        tempCtx.drawImage(source, imgObj.x * gridSize / canvas.width, imgObj.y * gridSize / canvas.height, sw * imgObj.scale * gridSize / canvas.width, sh * imgObj.scale * gridSize / canvas.height);
+        // 画到主canvas
+        for(let y=0; y<gridSize; y++){
+          for(let x=0; x<gridSize; x++){
+            const pixel = tempCtx.getImageData(x, y, 1, 1).data;
+            ctx.fillStyle = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+            ctx.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+          }
+        }
+        ctx.restore();
+
+        // 画网格线
+        ctx.save();
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 1;
+        for(let i=1; i<gridSize; i++){
+          ctx.beginPath();
+          ctx.moveTo(i*cellSize, 0);
+          ctx.lineTo(i*cellSize, canvas.height);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i*cellSize);
+          ctx.lineTo(canvas.width, i*cellSize);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 滑动对比原图
+        if (showCompare && compareX > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, compareX, canvas.height);
+          ctx.clip();
+          ctx.drawImage(source, imgObj.x, imgObj.y, sw * imgObj.scale, sh * imgObj.scale);
+          ctx.restore();
+        }
+      }
+    }
+  </script>
+</body>
+</html>

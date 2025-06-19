@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,8 +5,8 @@
   <title>8×8像素画布 / 8×8 Pixel Canvas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { background: #222; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; }
+    body { background: #222; color: #fff; font-family: Arial, "PingFang SC", "Microsoft YaHei", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; margin: 0; padding: 0; }
+    .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; position: relative;}
     h2 { text-align: center; margin-bottom: 18px; }
     #canvas { display: block; margin: 18px auto; background: #111; border-radius: 8px; touch-action: none; cursor: pointer;}
     .upload-btns { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px;}
@@ -20,47 +19,155 @@
     .video-controls { text-align: center; margin-bottom: 10px; }
     .video-controls button { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 18px; font-size: 1em; margin: 0 6px; }
     .video-controls button:active { background: #a67c52; }
+    .toggle-btn { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 1em; cursor: pointer; margin-bottom: 10px; transition: background 0.2s; display: block; margin-left: auto; margin-right: auto;}
+    .toggle-btn.active { background: #a67c52; }
     video { display: none; }
     .error { color: #ffb3b3; text-align: center; margin: 8px 0; }
-    .bilingual { font-size: 0.98em; color: #f7cac9; }
+    .lang-select {
+      position: absolute; top: 18px; right: 18px;
+      background: #b85c5c; color: #fff; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 1em; cursor: pointer; z-index: 10;
+      transition: background 0.2s;
+    }
+    @media (max-width: 500px) {
+      .container { padding: 12px 2vw; }
+      .lang-select { top: 8px; right: 8px; font-size: 0.95em; padding: 5px 10px;}
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>
-      8×8像素画布<br>
-      <span class="bilingual">8×8 Pixel Canvas</span>
-    </h2>
+    <select class="lang-select" id="langSelect">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+      <option value="no">Norsk</option>
+      <option value="ko">한국어</option>
+    </select>
+    <h2 id="title"></h2>
     <div class="upload-btns">
-      <label>
-        上传图片<br><span class="bilingual">Upload Image</span>
+      <label id="imgLabel">
         <input type="file" accept="image/*" id="imgInput">
       </label>
-      <label>
-        上传视频<br><span class="bilingual">Upload Video</span>
+      <label id="videoLabel">
         <input type="file" accept="video/*,.mp4,.webm,.ogg,.avi,.mov,.mkv,.flv" id="videoInput">
       </label>
     </div>
     <div class="slider-group">
-      <label>缩放<br><span class="bilingual">Scale</span></label>
+      <label id="scaleLabel"></label>
       <input type="range" id="scaleSlider" min="0.2" max="3" step="0.01" value="1">
       <span id="scaleVal">1.00</span>
     </div>
+    <button class="toggle-btn" id="compareBtn"></button>
     <div class="video-controls" id="videoControls" style="display:none;">
-      <button id="playBtn">播放<br><span class="bilingual">Play</span></button>
-      <button id="pauseBtn">暂停<br><span class="bilingual">Pause</span></button>
+      <button id="playBtn"></button>
+      <button id="pauseBtn"></button>
     </div>
     <canvas id="canvas" width="320" height="320"></canvas>
     <video id="video" crossorigin="anonymous" playsinline webkit-playsinline></video>
     <div class="error" id="errorMsg"></div>
-    <div class="tip">
-      支持多种视频格式。鼠标在画布上左右移动可对比原图与像素化效果。<br>
-      <span class="bilingual">
-        Multiple video formats supported. Move your mouse horizontally on the canvas to compare the original and pixelated image.
-      </span>
-    </div>
+    <div class="tip" id="tip"></div>
   </div>
   <script>
+    // 多语言文本
+    const LANGS = [
+      {
+        code: "zh",
+        name: "中文",
+        title: "8×8像素画布",
+        imgLabel: "上传图片",
+        videoLabel: "上传视频",
+        scaleLabel: "缩放",
+        playBtn: "播放",
+        pauseBtn: "暂停",
+        tip: "支持多种视频格式。鼠标在画布上左右移动可对比原图与像素化效果。",
+        compareOn: "开启滑动对比",
+        compareOff: "关闭滑动对比",
+        err1: "视频无法读取帧，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。",
+        err2: "视频加载失败，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。"
+      },
+      {
+        code: "en",
+        name: "English",
+        title: "8×8 Pixel Canvas",
+        imgLabel: "Upload Image",
+        videoLabel: "Upload Video",
+        scaleLabel: "Scale",
+        playBtn: "Play",
+        pauseBtn: "Pause",
+        tip: "Multiple video formats supported. Move your mouse horizontally on the canvas to compare the original and pixelated image.",
+        compareOn: "Enable Compare",
+        compareOff: "Disable Compare",
+        err1: "Video frame cannot be read. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).",
+        err2: "Video load failed. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended)."
+      },
+      {
+        code: "no",
+        name: "Norsk",
+        title: "8×8 Piksel Lerret",
+        imgLabel: "Last opp bilde",
+        videoLabel: "Last opp video",
+        scaleLabel: "Skala",
+        playBtn: "Spill av",
+        pauseBtn: "Pause",
+        tip: "Støtter flere videoformater. Flytt musen horisontalt over lerretet for å sammenligne originalen og pikselbildet.",
+        compareOn: "Aktiver sammenligning",
+        compareOff: "Deaktiver sammenligning",
+        err1: "Kan ikke lese videobilde. Prøv et annet format (mp4/webm/ogg/avi/mov/mkv/flv anbefales).",
+        err2: "Videoen kunne ikke lastes. Prøv et annet format (mp4/webm/ogg/avi/mov/mkv/flv anbefales)."
+      },
+      {
+        code: "ko",
+        name: "한국어",
+        title: "8×8 픽셀 캔버스",
+        imgLabel: "이미지 업로드",
+        videoLabel: "비디오 업로드",
+        scaleLabel: "확대/축소",
+        playBtn: "재생",
+        pauseBtn: "일시정지",
+        tip: "여러 비디오 포맷을 지원합니다. 캔버스에서 마우스를 좌우로 이동하면 원본과 픽셀화 이미지를 비교할 수 있습니다.",
+        compareOn: "비교 활성화",
+        compareOff: "비교 비활성화",
+        err1: "비디오 프레임을 읽을 수 없습니다. 다른 포맷(mp4/webm/ogg/avi/mov/mkv/flv 권장)을 시도해보세요.",
+        err2: "비디오를 불러올 수 없습니다. 다른 포맷(mp4/webm/ogg/avi/mov/mkv/flv 권장)을 시도해보세요."
+      }
+    ];
+    let langIdx = 0;
+
+    let compareEnabled = true;
+
+    function setLangByCode(code) {
+      langIdx = LANGS.findIndex(l => l.code === code);
+      if (langIdx === -1) langIdx = 0;
+      const L = LANGS[langIdx];
+      document.getElementById('title').textContent = L.title;
+      document.getElementById('imgLabel').childNodes[0].textContent = L.imgLabel;
+      document.getElementById('videoLabel').childNodes[0].textContent = L.videoLabel;
+      document.getElementById('scaleLabel').textContent = L.scaleLabel;
+      document.getElementById('playBtn').textContent = L.playBtn;
+      document.getElementById('pauseBtn').textContent = L.pauseBtn;
+      document.getElementById('tip').textContent = L.tip;
+      document.getElementById('compareBtn').textContent = compareEnabled ? L.compareOff : L.compareOn;
+      document.getElementById('compareBtn').className = compareEnabled ? 'toggle-btn active' : 'toggle-btn';
+      // 重新绑定input事件
+      document.getElementById('imgInput').addEventListener('change', imgInputHandler);
+      document.getElementById('videoInput').addEventListener('change', videoInputHandler);
+      // 清空错误
+      document.getElementById('errorMsg').textContent = '';
+    }
+
+    document.getElementById('langSelect').onchange = function() {
+      setLangByCode(this.value);
+      draw();
+    };
+
+    document.getElementById('compareBtn').onclick = function() {
+      compareEnabled = !compareEnabled;
+      setLangByCode(LANGS[langIdx].code);
+      if (!compareEnabled) showCompare = false;
+      draw();
+    };
+
+    // 画布相关
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const gridSize = 8;
@@ -74,7 +181,7 @@
     let animationId = null;
     let errorMsg = document.getElementById('errorMsg');
     let showCompare = false;
-    let compareX = canvas.width; // 鼠标横坐标，决定原图覆盖范围
+    let compareX = canvas.width;
 
     // 缩放滑块
     const scaleSlider = document.getElementById('scaleSlider');
@@ -86,7 +193,7 @@
     });
 
     // 上传图片
-    document.getElementById('imgInput').addEventListener('change', function(e) {
+    function imgInputHandler(e) {
       errorMsg.textContent = "";
       const file = e.target.files[0];
       if (!file) return;
@@ -104,10 +211,11 @@
       document.getElementById('videoControls').style.display = "none";
       video.pause();
       cancelAnimationFrame(animationId);
-    });
+    }
+    document.getElementById('imgInput').addEventListener('change', imgInputHandler);
 
     // 上传视频
-    document.getElementById('videoInput').addEventListener('change', function(e) {
+    function videoInputHandler(e) {
       errorMsg.textContent = "";
       const file = e.target.files[0];
       if (!file) return;
@@ -118,21 +226,23 @@
       video.currentTime = 0;
       video.oncanplay = function() {
         if (video.videoWidth === 0 || video.videoHeight === 0) {
-          errorMsg.textContent = "视频无法读取帧，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。\nVideo frame cannot be read. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).";
+          errorMsg.textContent = LANGS[langIdx].err1;
           return;
         }
-        imgObj.scale = 1;
-        scaleSlider.value = 1;
-        scaleVal.textContent = "1.00";
-        imgObj.x = (canvas.width - video.videoWidth) / 2;
-        imgObj.y = (canvas.height - video.videoHeight) / 2;
+        // 不再重置缩放和位置
+        // imgObj.scale = 1;
+        // scaleSlider.value = 1;
+        // scaleVal.textContent = "1.00";
+        // imgObj.x = (canvas.width - video.videoWidth) / 2;
+        // imgObj.y = (canvas.height - video.videoHeight) / 2;
         document.getElementById('videoControls').style.display = "";
         draw();
       };
       video.onerror = function() {
-        errorMsg.textContent = "视频加载失败，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。\nVideo load failed. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).";
+        errorMsg.textContent = LANGS[langIdx].err2;
       };
-    });
+    }
+    document.getElementById('videoInput').addEventListener('change', videoInputHandler);
 
     // 拖动图片/视频
     function getPointer(e) {
@@ -196,22 +306,26 @@
     canvas.addEventListener('mousemove', function(e) {
       if (!img && !isVideo) return;
       if (isDragging) return; // 拖动时不触发对比
+      if (!compareEnabled) return;
       showCompare = true;
       compareX = getPointer(e).x;
       draw();
     });
     canvas.addEventListener('mouseleave', function() {
+      if (!compareEnabled) return;
       showCompare = false;
       draw();
     });
     canvas.addEventListener('touchmove', function(e) {
       if (!img && !isVideo) return;
       if (isDragging) return;
+      if (!compareEnabled) return;
       showCompare = true;
       compareX = getPointer(e).x;
       draw();
     });
     canvas.addEventListener('touchend', function() {
+      if (!compareEnabled) return;
       showCompare = false;
       draw();
     });
@@ -304,7 +418,7 @@
         ctx.restore();
 
         // 滑动对比原图
-        if (showCompare && compareX > 0) {
+        if (compareEnabled && showCompare && compareX > 0) {
           ctx.save();
           ctx.beginPath();
           ctx.rect(0, 0, compareX, canvas.height);
@@ -314,6 +428,9 @@
         }
       }
     }
+
+    // 初始化语言
+    setLangByCode('zh');
   </script>
 </body>
 </html>

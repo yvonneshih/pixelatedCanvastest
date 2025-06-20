@@ -15,17 +15,33 @@
     .upload-btns label { background: #b85c5c; color: #fff; border-radius: 6px; padding: 8px 18px; cursor: pointer; text-align: center; }
     .upload-btns input { display: none; }
     .tip { text-align: center; color: #aaa; font-size: 0.98em; margin-top: 10px; min-height: 1.2em; }
-    .controls-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
-    .controls-row label { font-size: 0.98em; }
-    .controls-row input[type=range] { width: 120px; }
-    .controls-row select, .controls-row button {
-      background: #b85c5c;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 14px;
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    #pixelControlsRow label, #pixelControlsRow select, #pixelControlsRow input[type=range], #pixelControlsRow span {
+      margin-right: 6px;
+      margin-bottom: 2px;
       font-size: 1em;
-      cursor: pointer;
+    }
+    #pixelControlsRow label {
+      min-width: 60px;
+      text-align: right;
+    }
+    #pixelControlsRow input[type=range] {
+      width: 90px;
+    }
+    #pixelControlsRow select {
+      min-width: 80px;
+    }
+    #pixelControlsRow span {
+      min-width: 36px;
+      display: inline-block;
+      text-align: center;
     }
     .video-controls { text-align: center; margin-top: 10px; }
     .video-controls button { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 18px; font-size: 1em; margin: 0 6px; }
@@ -85,6 +101,16 @@
             <option value="64">64x64</option>
         </select>
       </div>
+      <div class="controls-row" id="pixelControlsRow">
+        <label id="shapeLabel"></label>
+        <select id="shapeSelect"></select>
+        <label id="radiusLabel"></label>
+        <input type="range" id="radiusSlider" min="0" max="40" step="1" value="13">
+        <span id="radiusVal">13</span>
+        <label id="pixelSizeLabel"></label>
+        <input type="range" id="pixelSizeSlider" min="0.5" max="1" step="0.01" value="1">
+        <span id="pixelSizeVal">1.00</span>
+      </div>
     </div>
     
     <canvas id="pixelCanvas" width="320" height="320"></canvas>
@@ -98,7 +124,7 @@
       </div>
     </div>
 
-    <video id="video" crossorigin="anonymous" playsinline webkit-playsinline loop></video>
+    <video id="video" crossorigin="anonymous" playsinline webkit-playsinline loop autoplay></video>
     <div class="error" id="errorMsg"></div>
     <div class="tip" id="tip"></div>
   </div>
@@ -134,7 +160,8 @@
         joinCodePlaceholder: "4位邀请码", joinRoomBtn: "加入房间", roomInfoText: "分享此邀请码给好友:",
         switchToJoinBtn: "已有邀请码?", switchToCreateBtn: "返回创建", closeModalBtn: "关闭",
         roomCreated: "房间已创建!", userJoined: "一位朋友已加入", userLeft: "一位朋友已离开",
-        collabStatus: "协作中", collabUnavailable: "协作功能不可用"
+        collabStatus: "协作中", collabUnavailable: "协作功能不可用",
+        shapeLabel: "像素形状", radiusLabel: "圆角", pixelSizeLabel: "像素大小", shapeSquare: "直角方格", shapeRound: "圆角方格"
       },
       {
         code: "en", name: "English", title: "Pixel Preview", originalTitle: "Original Image (Draggable)",
@@ -144,7 +171,8 @@
         joinCodePlaceholder: "4-digit code", joinRoomBtn: "Join Room", roomInfoText: "Share this code with your friend:",
         switchToJoinBtn: "Have a code?", switchToCreateBtn: "Back to Create", closeModalBtn: "Close",
         roomCreated: "Room Created!", userJoined: "A friend has joined", userLeft: "A friend has left",
-        collabStatus: "In collaboration", collabUnavailable: "Collaboration unavailable"
+        collabStatus: "In collaboration", collabUnavailable: "Collaboration unavailable",
+        shapeLabel: "Pixel Shape", radiusLabel: "Radius", pixelSizeLabel: "Pixel Size", shapeSquare: "Square", shapeRound: "Round"
       },
       {
         code: "no", name: "Norsk", title: "Piksel Forhåndsvisning", originalTitle: "Originalbilde (Dra-bart)",
@@ -154,7 +182,8 @@
         joinCodePlaceholder: "4-sifret kode", joinRoomBtn: "Join Room", roomInfoText: "Del denne koden med en venn:",
         switchToJoinBtn: "Har du en kode?", switchToCreateBtn: "Tilbake til Opprett", closeModalBtn: "Lukk",
         roomCreated: "Rom opprettet!", userJoined: "En venn har joindt", userLeft: "En venn har forlatt",
-        collabStatus: "I samarbeid", collabUnavailable: "Samarbeid utilgjengelig"
+        collabStatus: "I samarbeid", collabUnavailable: "Samarbeid utilgjengelig",
+        shapeLabel: "Pikselform", radiusLabel: "Radius", pixelSizeLabel: "Pikselstørrelse", shapeSquare: "Rektangel", shapeRound: "Sirkel"
       },
       {
         code: "ko", name: "한국어", title: "픽셀 미리보기", originalTitle: "원본 이미지 (드래그 가능)",
@@ -164,7 +193,8 @@
         joinCodePlaceholder: "4자 초대코드", joinRoomBtn: "방 참여", roomInfoText: "이 초대코드를 친구에게 공유하세요:",
         switchToJoinBtn: "초대코드가 있습니까?", switchToCreateBtn: "만들기로 돌아가기", closeModalBtn: "닫기",
         roomCreated: "방이 만들어졌습니다!", userJoined: "친구가 참여했습니다", userLeft: "친구가 떠났습니다",
-        collabStatus: "협업 중", collabUnavailable: "협업 기능을 사용할 수 없습니다"
+        collabStatus: "협업 중", collabUnavailable: "협업 기능을 사용할 수 없습니다",
+        shapeLabel: "픽셀 모양", radiusLabel: "반지름", pixelSizeLabel: "픽셀 크기", shapeSquare: "직각 사각형", shapeRound: "둥근 사각형"
       }
     ];
     
@@ -175,7 +205,7 @@
     const video = document.getElementById('video');
     const errorMsg = document.getElementById('errorMsg');
 
-    let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize;
+    let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize, pixelShape = 'round', cellRadius = 13, pixelSizeRatio = 1;
     
     let img = null, isVideo = false, mediaSrc = null;
     let imgObj = { x: 0, y: 0, scale: 1 };
@@ -205,6 +235,11 @@
       document.getElementById('switchToJoinBtn').textContent = L.switchToJoinBtn;
       document.getElementById('switchToCreateBtn').textContent = L.switchToCreateBtn;
       document.getElementById('closeModalBtn').textContent = L.closeModalBtn;
+      document.getElementById('shapeLabel').textContent = L.shapeLabel || '像素形状';
+      document.getElementById('radiusLabel').textContent = L.radiusLabel || '圆角';
+      document.getElementById('pixelSizeLabel').textContent = L.pixelSizeLabel || '像素大小';
+      document.querySelector('#shapeSelect option[value="square"]').textContent = L.shapeSquare || '直角方格';
+      document.querySelector('#shapeSelect option[value="round"]').textContent = L.shapeRound || '圆角方格';
       errorMsg.textContent = '';
     }
 
@@ -226,41 +261,31 @@
       if (source) {
         const sourceW = isVideo ? video.videoWidth : img.width;
         const sourceH = isVideo ? video.videoHeight : img.height;
-
-        // --- Draw Original Canvas (800x800) ---
         oCtx.drawImage(source, imgObj.x, imgObj.y, sourceW * imgObj.scale, sourceH * imgObj.scale);
-        
         // --- Draw Pixelated Canvas (320x320) ---
-        // This should be a pixelated view of the top-left 320x320 area of the originalCanvas.
         const sx = -imgObj.x / imgObj.scale;
         const sy = -imgObj.y / imgObj.scale;
         const sWidth = pixelCanvas.width / imgObj.scale;
         const sHeight = pixelCanvas.height / imgObj.scale;
-
         const avgColorCanvas = document.createElement('canvas');
         avgColorCanvas.width = gridSize;
         avgColorCanvas.height = gridSize;
         const avgColorCtx = avgColorCanvas.getContext('2d');
-        
-        // Draw the calculated source region into the tiny canvas.
         avgColorCtx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, gridSize, gridSize);
-
-        // 用圆角和间距绘制像素格子
         const gap = 2; // 格子间距
-        const radius = cellSize / 3; // 圆角半径
+        let radius = pixelShape === 'round' ? cellRadius : 0;
         for (let y = 0; y < gridSize; y++) {
           for (let x = 0; x < gridSize; x++) {
             const pixel = avgColorCtx.getImageData(x, y, 1, 1).data;
             const color = `rgba(${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]/255})`;
-            const px = x * cellSize + gap/2;
-            const py = y * cellSize + gap/2;
-            const size = cellSize - gap;
+            const px = x * cellSize + (cellSize - cellSize * pixelSizeRatio) / 2 + gap/2;
+            const py = y * cellSize + (cellSize - cellSize * pixelSizeRatio) / 2 + gap/2;
+            const size = cellSize * pixelSizeRatio - gap;
             pCtx.fillStyle = color;
             fillRoundRect(pCtx, px, py, size, size, radius);
           }
         }
       }
-      
       // Draw grid lines on pixel canvas
       pCtx.save();
       pCtx.strokeStyle = "rgba(128, 128, 128, 0.3)";
@@ -314,6 +339,18 @@
         renderCanvases();
     };
     
+    document.getElementById('shapeSelect').onchange = (e) => {
+        pixelShape = e.target.value;
+        document.getElementById('radiusSlider').disabled = (pixelShape === 'square');
+        renderCanvases();
+    };
+    
+    document.getElementById('radiusSlider').oninput = function() {
+        cellRadius = parseInt(this.value, 10);
+        document.getElementById('radiusVal').textContent = cellRadius;
+        renderCanvases();
+    };
+    
     document.getElementById('scaleSlider').oninput = function() {
        if (!img && !isVideo) return;
        const oldScale = imgObj.scale;
@@ -332,6 +369,12 @@
        imgObj.y = canvasCenterY - imgPointY * newScale;
        imgObj.scale = newScale;
        renderCanvases();
+    };
+    
+    document.getElementById('pixelSizeSlider').oninput = function() {
+        pixelSizeRatio = parseFloat(this.value);
+        document.getElementById('pixelSizeVal').textContent = pixelSizeRatio.toFixed(2);
+        renderCanvases();
     };
     
     function setupMedia(file) {
@@ -485,6 +528,13 @@
     
     // Initialization
     setLangByCode('zh');
+    cellSize = pixelCanvas.width / gridSize;
+    document.getElementById('radiusSlider').value = cellRadius;
+    document.getElementById('radiusVal').textContent = cellRadius;
+    document.getElementById('shapeSelect').value = pixelShape;
+    document.getElementById('radiusSlider').disabled = (pixelShape === 'square');
+    document.getElementById('pixelSizeSlider').value = pixelSizeRatio;
+    document.getElementById('pixelSizeVal').textContent = pixelSizeRatio.toFixed(2);
     updateControlsVisibility();
     renderCanvases();
 

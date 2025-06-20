@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -8,13 +9,13 @@
     body { background: #222; color: #fff; font-family: Arial, "PingFang SC", "Microsoft YaHei", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; margin: 0; padding: 0; }
     .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; position: relative; display: flex; flex-direction: column; align-items: center; }
     h2 { text-align: center; margin-bottom: 18px; }
-    .controls-wrapper { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-bottom: 20px; }
+    .controls-wrapper { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-bottom: 20px; }
     #pixelCanvas { display: block; margin-bottom: 20px; background: #111; border-radius: 8px; }
     #originalCanvas { display: block; background: #111; border-radius: 8px; cursor: move; touch-action: none; }
     .upload-btns { display: flex; justify-content: center; gap: 16px; }
     .upload-btns label { background: #b85c5c; color: #fff; border-radius: 6px; padding: 8px 18px; cursor: pointer; text-align: center; }
     .upload-btns input { display: none; }
-    .tip { text-align: center; color: #aaa; font-size: 0.98em; margin-top: 10px; }
+    .tip { text-align: center; color: #aaa; font-size: 0.98em; margin-top: 10px; min-height: 1.2em; }
     .controls-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
     .controls-row label { font-size: 0.98em; }
     .controls-row input[type=range] { width: 120px; }
@@ -85,10 +86,11 @@
       </div>
     </div>
 
-    <video id="video" crossorigin="anonymous" playsinline webkit-playsinline></video>
+    <video id="video" crossorigin="anonymous" playsinline webkit-playsinline loop></video>
     <div class="error" id="errorMsg"></div>
     <div class="tip" id="tip"></div>
   </div>
+
   <script>
     const LANGS = [
       {
@@ -121,13 +123,12 @@
     const errorMsg = document.getElementById('errorMsg');
 
     let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize;
-    
-    let img = null, isVideo = false;
+    let img = null, isVideo = false, mediaSrc = null;
     let imgObj = { x: 0, y: 0, scale: 1 };
     let isDragging = false, startX, startY;
     let animationId = null;
     let mediaJustLoaded = false;
-    
+
     function setLangByCode(code) {
       langIdx = LANGS.findIndex(l => l.code === code);
       if (langIdx === -1) langIdx = 0;
@@ -152,7 +153,7 @@
     }
 
     function renderCanvases() {
-      // Clear canvases
+      // 清空画布
       pCtx.fillStyle = "#111";
       pCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
       oCtx.fillStyle = "#111";
@@ -163,11 +164,10 @@
         const sourceW = isVideo ? video.videoWidth : img.width;
         const sourceH = isVideo ? video.videoHeight : img.height;
 
-        // --- Draw Original Canvas (800x800) ---
+        // 原图
         oCtx.drawImage(source, imgObj.x, imgObj.y, sourceW * imgObj.scale, sourceH * imgObj.scale);
-        
-        // --- Draw Pixelated Canvas (320x320) ---
-        // This should be a pixelated view of the top-left 320x320 area of the originalCanvas.
+
+        // 像素化
         const sx = -imgObj.x / imgObj.scale;
         const sy = -imgObj.y / imgObj.scale;
         const sWidth = pixelCanvas.width / imgObj.scale;
@@ -177,16 +177,25 @@
         avgColorCanvas.width = gridSize;
         avgColorCanvas.height = gridSize;
         const avgColorCtx = avgColorCanvas.getContext('2d');
-        
-        // Draw the calculated source region into the tiny canvas.
         avgColorCtx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, gridSize, gridSize);
 
-        // Scale up the tiny, averaged canvas onto the main pixel canvas.
-        pCtx.imageSmoothingEnabled = false;
-        pCtx.drawImage(avgColorCanvas, 0, 0, gridSize, gridSize, 0, 0, pixelCanvas.width, pixelCanvas.height);
+        // 用圆角和间距绘制像素格子
+        const gap = 2; // 格子间距
+        const radius = cellSize / 3; // 圆角半径
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            const pixel = avgColorCtx.getImageData(x, y, 1, 1).data;
+            const color = `rgba(${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]/255})`;
+            const px = x * cellSize + gap/2;
+            const py = y * cellSize + gap/2;
+            const size = cellSize - gap;
+            pCtx.fillStyle = color;
+            fillRoundRect(pCtx, px, py, size, size, radius);
+          }
+        }
       }
-      
-      // Draw grid lines on pixel canvas
+
+      // 画网格线
       pCtx.save();
       pCtx.strokeStyle = "rgba(128, 128, 128, 0.3)";
       pCtx.lineWidth = 1;
@@ -201,6 +210,22 @@
           pCtx.stroke();
       }
       pCtx.restore();
+    }
+
+    // 圆角矩形辅助函数
+    function fillRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
     }
 
     function getPointer(e, targetCanvas) {
@@ -260,14 +285,28 @@
     };
     
     function setupMedia(file) {
+      mediaSrc = URL.createObjectURL(file);
       updateControlsVisibility();
       mediaJustLoaded = true;
       const L = LANGS[langIdx];
       const tip = document.getElementById('tip');
       tip.textContent = `Loading ${file.name}...`;
-      return URL.createObjectURL(file);
+      return mediaSrc;
     }
     
+    function loadMediaFromURL(src, isVideoSrc) {
+        mediaSrc = src;
+        isVideo = isVideoSrc;
+        if (isVideo) {
+            img = null;
+            video.src = src;
+        } else {
+            video.pause();
+            img = new Image();
+            img.src = src;
+        }
+    }
+
     document.getElementById('imgInput').onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -349,13 +388,17 @@
         animationId = requestAnimationFrame(videoLoop);
     });
     video.addEventListener('pause', () => cancelAnimationFrame(animationId));
-    video.addEventListener('ended', () => cancelAnimationFrame(animationId));
+    video.addEventListener('ended', () => {
+        video.currentTime = 0;
+        video.play();
+        cancelAnimationFrame(animationId);
+    });
     video.addEventListener('seeked', renderCanvases);
     
-    // Initialization
+    // 初始化
     setLangByCode('zh');
     updateControlsVisibility();
     renderCanvases();
   </script>
 </body>
-</html> 
+</html>

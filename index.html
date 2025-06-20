@@ -2,37 +2,40 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>8×8像素画布 / 8×8 Pixel Canvas</title>
+  <title>像素画布 / Pixel Canvas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { background: #222; color: #fff; font-family: Arial, "PingFang SC", "Microsoft YaHei", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; margin: 0; padding: 0; }
-    .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; position: relative;}
+    .container { max-width: 400px; margin: 40px auto; background: #333; border-radius: 16px; box-shadow: 0 4px 24px #0005; padding: 24px 16px; position: relative; display: flex; flex-direction: column; align-items: center; }
     h2 { text-align: center; margin-bottom: 18px; }
-    #canvas { display: block; margin: 18px auto; background: #111; border-radius: 8px; touch-action: none; cursor: pointer;}
-    .upload-btns { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px;}
-    .upload-btns label { background: #b85c5c; color: #fff; border-radius: 6px; padding: 8px 18px; cursor: pointer; }
+    .controls-wrapper { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-bottom: 20px; }
+    #pixelCanvas { display: block; margin-bottom: 20px; background: #111; border-radius: 8px; }
+    #originalCanvas { display: block; background: #111; border-radius: 8px; cursor: move; touch-action: none; }
+    .upload-btns { display: flex; justify-content: center; gap: 16px; }
+    .upload-btns label { background: #b85c5c; color: #fff; border-radius: 6px; padding: 8px 18px; cursor: pointer; text-align: center; }
     .upload-btns input { display: none; }
-    .tip { text-align: center; color: #aaa; font-size: 0.98em; }
-    .slider-group { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;}
-    .slider-group label { font-size: 0.98em; }
-    .slider-group input[type=range] { width: 120px; }
-    .video-controls { text-align: center; margin-bottom: 10px; }
+    .tip { text-align: center; color: #aaa; font-size: 0.98em; margin-top: 10px; }
+    .controls-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .controls-row label { font-size: 0.98em; }
+    .controls-row input[type=range] { width: 120px; }
+    .controls-row select, .controls-row button {
+      background: #b85c5c;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    .video-controls { text-align: center; margin-top: 10px; }
     .video-controls button { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 18px; font-size: 1em; margin: 0 6px; }
-    .video-controls button:active { background: #a67c52; }
-    .toggle-btn { background: #b85c5c; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 1em; cursor: pointer; margin-bottom: 10px; transition: background 0.2s; display: block; margin-left: auto; margin-right: auto;}
-    .toggle-btn.active { background: #a67c52; }
-    video { display: none; }
-    .error { color: #ffb3b3; text-align: center; margin: 8px 0; }
     .lang-select {
       position: absolute; top: 18px; right: 18px;
       background: #b85c5c; color: #fff; border: none; border-radius: 6px;
       padding: 6px 14px; font-size: 1em; cursor: pointer; z-index: 10;
-      transition: background 0.2s;
     }
-    @media (max-width: 500px) {
-      .container { padding: 12px 2vw; }
-      .lang-select { top: 8px; right: 8px; font-size: 0.95em; padding: 5px 10px;}
-    }
+    video { display: none; }
+    .error { color: #ffb3b3; text-align: center; margin: 8px 0; }
   </style>
 </head>
 <body>
@@ -44,393 +47,315 @@
       <option value="ko">한국어</option>
     </select>
     <h2 id="title"></h2>
-    <div class="upload-btns">
-      <label id="imgLabel">
-        <input type="file" accept="image/*" id="imgInput">
-      </label>
-      <label id="videoLabel">
-        <input type="file" accept="video/*,.mp4,.webm,.ogg,.avi,.mov,.mkv,.flv" id="videoInput">
-      </label>
+    <div class="controls-wrapper">
+      <div class="upload-btns">
+        <label id="imgLabel">
+          <input type="file" accept="image/*" id="imgInput">
+        </label>
+        <label id="videoLabel">
+          <input type="file" accept="video/*,.mp4,.webm,.ogg" id="videoInput">
+        </label>
+      </div>
+      <div id="mediaControls" style="display: none;">
+        <div class="controls-row">
+          <label id="scaleLabel"></label>
+          <input type="range" id="scaleSlider" min="0.2" max="3" step="0.01" value="1">
+          <span id="scaleVal">1.00</span>
+        </div>
+      </div>
+      <div class="controls-row">
+        <label id="gridLabel"></label>
+        <select id="gridSizeSelect">
+            <option value="8">8x8</option>
+            <option value="16">16x16</option>
+            <option value="32">32x32</option>
+            <option value="64">64x64</option>
+        </select>
+      </div>
     </div>
-    <div class="slider-group">
-      <label id="scaleLabel"></label>
-      <input type="range" id="scaleSlider" min="0.2" max="3" step="0.01" value="1">
-      <span id="scaleVal">1.00</span>
+    
+    <canvas id="pixelCanvas" width="320" height="320"></canvas>
+    
+    <div id="originalCanvasWrapper" style="display: none;">
+      <h2 id="originalTitle"></h2>
+      <canvas id="originalCanvas" width="320" height="320"></canvas>
+      <div class="video-controls" id="videoControls" style="display:none;">
+        <button id="playBtn"></button>
+        <button id="pauseBtn"></button>
+      </div>
     </div>
-    <button class="toggle-btn" id="compareBtn"></button>
-    <div class="video-controls" id="videoControls" style="display:none;">
-      <button id="playBtn"></button>
-      <button id="pauseBtn"></button>
-    </div>
-    <canvas id="canvas" width="320" height="320"></canvas>
+
     <video id="video" crossorigin="anonymous" playsinline webkit-playsinline></video>
     <div class="error" id="errorMsg"></div>
     <div class="tip" id="tip"></div>
   </div>
   <script>
-    // 多语言文本
     const LANGS = [
       {
-        code: "zh",
-        name: "中文",
-        title: "8×8像素画布",
-        imgLabel: "上传图片",
-        videoLabel: "上传视频",
-        scaleLabel: "缩放",
-        playBtn: "播放",
-        pauseBtn: "暂停",
-        tip: "支持多种视频格式。鼠标在画布上左右移动可对比原图与像素化效果。",
-        compareOn: "开启滑动对比",
-        compareOff: "关闭滑动对比",
-        err1: "视频无法读取帧，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。",
-        err2: "视频加载失败，请尝试其他格式（推荐mp4/webm/ogg/avi/mov/mkv/flv）。"
+        code: "zh", name: "中文", title: "像素预览", originalTitle: "原始图像 (可拖动)",
+        imgLabel: "上传图片", videoLabel: "上传视频", scaleLabel: "缩放", gridLabel: "网格",
+        playBtn: "播放", pauseBtn: "暂停", tip: "上传媒体以查看像素化效果。"
       },
       {
-        code: "en",
-        name: "English",
-        title: "8×8 Pixel Canvas",
-        imgLabel: "Upload Image",
-        videoLabel: "Upload Video",
-        scaleLabel: "Scale",
-        playBtn: "Play",
-        pauseBtn: "Pause",
-        tip: "Multiple video formats supported. Move your mouse horizontally on the canvas to compare the original and pixelated image.",
-        compareOn: "Enable Compare",
-        compareOff: "Disable Compare",
-        err1: "Video frame cannot be read. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended).",
-        err2: "Video load failed. Please try another format (mp4/webm/ogg/avi/mov/mkv/flv recommended)."
+        code: "en", name: "English", title: "Pixel Preview", originalTitle: "Original Image (Draggable)",
+        imgLabel: "Upload Image", videoLabel: "Upload Video", scaleLabel: "Scale", gridLabel: "Grid",
+        playBtn: "Play", pauseBtn: "Pause", tip: "Upload media to see the pixelated effect."
       },
       {
-        code: "no",
-        name: "Norsk",
-        title: "8×8 Piksel Lerret",
-        imgLabel: "Last opp bilde",
-        videoLabel: "Last opp video",
-        scaleLabel: "Skala",
-        playBtn: "Spill av",
-        pauseBtn: "Pause",
-        tip: "Støtter flere videoformater. Flytt musen horisontalt over lerretet for å sammenligne originalen og pikselbildet.",
-        compareOn: "Aktiver sammenligning",
-        compareOff: "Deaktiver sammenligning",
-        err1: "Kan ikke lese videobilde. Prøv et annet format (mp4/webm/ogg/avi/mov/mkv/flv anbefales).",
-        err2: "Videoen kunne ikke lastes. Prøv et annet format (mp4/webm/ogg/avi/mov/mkv/flv anbefales)."
+        code: "no", name: "Norsk", title: "Piksel Forhåndsvisning", originalTitle: "Originalbilde (Dra-bart)",
+        imgLabel: "Last opp bilde", videoLabel: "Last opp video", scaleLabel: "Skala", gridLabel: "Rutenett",
+        playBtn: "Spill av", pauseBtn: "Pause", tip: "Last opp media for å se den pikselerte effekten."
       },
       {
-        code: "ko",
-        name: "한국어",
-        title: "8×8 픽셀 캔버스",
-        imgLabel: "이미지 업로드",
-        videoLabel: "비디오 업로드",
-        scaleLabel: "확대/축소",
-        playBtn: "재생",
-        pauseBtn: "일시정지",
-        tip: "여러 비디오 포맷을 지원합니다. 캔버스에서 마우스를 좌우로 이동하면 원본과 픽셀화 이미지를 비교할 수 있습니다.",
-        compareOn: "비교 활성화",
-        compareOff: "비교 비활성화",
-        err1: "비디오 프레임을 읽을 수 없습니다. 다른 포맷(mp4/webm/ogg/avi/mov/mkv/flv 권장)을 시도해보세요.",
-        err2: "비디오를 불러올 수 없습니다. 다른 포맷(mp4/webm/ogg/avi/mov/mkv/flv 권장)을 시도해보세요."
+        code: "ko", name: "한국어", title: "픽셀 미리보기", originalTitle: "원본 이미지 (드래그 가능)",
+        imgLabel: "이미지 업로드", videoLabel: "비디오 업로드", scaleLabel: "확대/축소", gridLabel: "그리드",
+        playBtn: "재생", pauseBtn: "일시정지", tip: "픽셀화 효과를 보려면 미디어를 업로드하십시오."
       }
     ];
-    let langIdx = 0;
 
-    let compareEnabled = true;
+    const pixelCanvas = document.getElementById('pixelCanvas');
+    const pCtx = pixelCanvas.getContext('2d');
+    const originalCanvas = document.getElementById('originalCanvas');
+    const oCtx = originalCanvas.getContext('2d');
+    const video = document.getElementById('video');
+    const errorMsg = document.getElementById('errorMsg');
 
+    let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize;
+    
+    let img = null, isVideo = false;
+    let imgObj = { x: 0, y: 0, scale: 1 };
+    let isDragging = false, startX, startY;
+    let animationId = null;
+    let mediaJustLoaded = false;
+    
     function setLangByCode(code) {
       langIdx = LANGS.findIndex(l => l.code === code);
       if (langIdx === -1) langIdx = 0;
       const L = LANGS[langIdx];
       document.getElementById('title').textContent = L.title;
+      document.getElementById('originalTitle').textContent = L.originalTitle;
       document.getElementById('imgLabel').childNodes[0].textContent = L.imgLabel;
       document.getElementById('videoLabel').childNodes[0].textContent = L.videoLabel;
       document.getElementById('scaleLabel').textContent = L.scaleLabel;
+      document.getElementById('gridLabel').textContent = L.gridLabel;
       document.getElementById('playBtn').textContent = L.playBtn;
       document.getElementById('pauseBtn').textContent = L.pauseBtn;
       document.getElementById('tip').textContent = L.tip;
-      document.getElementById('compareBtn').textContent = compareEnabled ? L.compareOff : L.compareOn;
-      document.getElementById('compareBtn').className = compareEnabled ? 'toggle-btn active' : 'toggle-btn';
-      // 重新绑定input事件
-      document.getElementById('imgInput').addEventListener('change', imgInputHandler);
-      document.getElementById('videoInput').addEventListener('change', videoInputHandler);
-      // 清空错误
-      document.getElementById('errorMsg').textContent = '';
+      errorMsg.textContent = '';
     }
 
-    document.getElementById('langSelect').onchange = function() {
-      setLangByCode(this.value);
-      draw();
+    function updateControlsVisibility() {
+      const hasMedia = img || isVideo;
+      document.getElementById('mediaControls').style.display = hasMedia ? 'flex' : 'none';
+      document.getElementById('videoControls').style.display = isVideo ? 'flex' : 'none';
+      document.getElementById('originalCanvasWrapper').style.display = hasMedia ? 'block' : 'none';
+    }
+
+    function renderCanvases() {
+      // Clear canvases
+      pCtx.fillStyle = "#111";
+      pCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
+      oCtx.fillStyle = "#111";
+      oCtx.fillRect(0, 0, originalCanvas.width, originalCanvas.height);
+
+      let source = img || (isVideo ? video : null);
+      if (source) {
+        const sourceW = isVideo ? video.videoWidth : img.width;
+        const sourceH = isVideo ? video.videoHeight : img.height;
+
+        // --- Draw Original Canvas (800x800) ---
+        oCtx.drawImage(source, imgObj.x, imgObj.y, sourceW * imgObj.scale, sourceH * imgObj.scale);
+        
+        // --- Draw Pixelated Canvas (320x320) ---
+        // This should be a pixelated view of the top-left 320x320 area of the originalCanvas.
+        const sx = -imgObj.x / imgObj.scale;
+        const sy = -imgObj.y / imgObj.scale;
+        const sWidth = pixelCanvas.width / imgObj.scale;
+        const sHeight = pixelCanvas.height / imgObj.scale;
+
+        const avgColorCanvas = document.createElement('canvas');
+        avgColorCanvas.width = gridSize;
+        avgColorCanvas.height = gridSize;
+        const avgColorCtx = avgColorCanvas.getContext('2d');
+        
+        // Draw the calculated source region into the tiny canvas.
+        avgColorCtx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, gridSize, gridSize);
+
+        // Scale up the tiny, averaged canvas onto the main pixel canvas.
+        pCtx.imageSmoothingEnabled = false;
+        pCtx.drawImage(avgColorCanvas, 0, 0, gridSize, gridSize, 0, 0, pixelCanvas.width, pixelCanvas.height);
+      }
+      
+      // Draw grid lines on pixel canvas
+      pCtx.save();
+      pCtx.strokeStyle = "rgba(128, 128, 128, 0.3)";
+      pCtx.lineWidth = 1;
+      for(let i = 1; i < gridSize; i++){
+          pCtx.beginPath();
+          pCtx.moveTo(i * cellSize, 0);
+          pCtx.lineTo(i * cellSize, pixelCanvas.height);
+          pCtx.stroke();
+          pCtx.beginPath();
+          pCtx.moveTo(0, i * cellSize);
+          pCtx.lineTo(pixelCanvas.width, i * cellSize);
+          pCtx.stroke();
+      }
+      pCtx.restore();
+    }
+
+    function getPointer(e, targetCanvas) {
+      const rect = targetCanvas.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+
+    function handlePointerDown(e) {
+        if (img || isVideo) {
+            isDragging = true;
+            const pointer = getPointer(e, originalCanvas);
+            startX = pointer.x - imgObj.x;
+            startY = pointer.y - imgObj.y;
+        }
+    }
+
+    function handlePointerMove(e) {
+        if (isDragging) {
+            const pointer = getPointer(e, originalCanvas);
+            imgObj.x = pointer.x - startX;
+            imgObj.y = pointer.y - startY;
+            renderCanvases();
+        }
+    }
+
+    function handlePointerUp() {
+      isDragging = false;
+    }
+    
+    document.getElementById('langSelect').onchange = (e) => setLangByCode(e.target.value);
+    
+    document.getElementById('gridSizeSelect').onchange = (e) => {
+        gridSize = parseInt(e.target.value, 10);
+        cellSize = pixelCanvas.width / gridSize;
+        renderCanvases();
     };
-
-    document.getElementById('compareBtn').onclick = function() {
-      compareEnabled = !compareEnabled;
-      setLangByCode(LANGS[langIdx].code);
-      if (!compareEnabled) showCompare = false;
-      draw();
+    
+    document.getElementById('scaleSlider').oninput = function() {
+       if (!img && !isVideo) return;
+       const oldScale = imgObj.scale;
+       const newScale = parseFloat(this.value);
+       document.getElementById('scaleVal').textContent = newScale.toFixed(2);
+       
+       const canvasCenterX = originalCanvas.width / 2;
+       const canvasCenterY = originalCanvas.height / 2;
+       
+       const centerRelX = canvasCenterX - imgObj.x;
+       const centerRelY = canvasCenterY - imgObj.y;
+       const imgPointX = centerRelX / oldScale;
+       const imgPointY = centerRelY / oldScale;
+       
+       imgObj.x = canvasCenterX - imgPointX * newScale;
+       imgObj.y = canvasCenterY - imgPointY * newScale;
+       imgObj.scale = newScale;
+       renderCanvases();
     };
-
-    // 画布相关
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const gridSize = 8;
-    const cellSize = canvas.width / gridSize;
-
-    let img = null;
-    let video = document.getElementById('video');
-    let isVideo = false;
-    let imgObj = { x: 0, y: 0, scale: 1 };
-    let isDragging = false, startX, startY;
-    let animationId = null;
-    let errorMsg = document.getElementById('errorMsg');
-    let showCompare = false;
-    let compareX = canvas.width;
-
-    // 缩放滑块
-    const scaleSlider = document.getElementById('scaleSlider');
-    const scaleVal = document.getElementById('scaleVal');
-    scaleSlider.addEventListener('input', function() {
-      imgObj.scale = parseFloat(this.value);
-      scaleVal.textContent = imgObj.scale.toFixed(2);
-      draw();
-    });
-
-    // 上传图片
-    function imgInputHandler(e) {
-      errorMsg.textContent = "";
+    
+    function setupMedia(file) {
+      updateControlsVisibility();
+      mediaJustLoaded = true;
+      const L = LANGS[langIdx];
+      const tip = document.getElementById('tip');
+      tip.textContent = `Loading ${file.name}...`;
+      return URL.createObjectURL(file);
+    }
+    
+    document.getElementById('imgInput').onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      
       isVideo = false;
       img = new Image();
-      img.onload = function() {
-        imgObj.scale = 1;
-        scaleSlider.value = 1;
-        scaleVal.textContent = "1.00";
-        imgObj.x = (canvas.width - img.width) / 2;
-        imgObj.y = (canvas.height - img.height) / 2;
-        draw();
+      const imgUrl = setupMedia(file);
+      
+      img.onload = () => {
+        if (mediaJustLoaded) {
+            imgObj.scale = 1;
+            document.getElementById('scaleSlider').value = 1;
+            document.getElementById('scaleVal').textContent = "1.00";
+            imgObj.x = (originalCanvas.width - img.width) / 2;
+            imgObj.y = (originalCanvas.height - img.height) / 2;
+            mediaJustLoaded = false;
+        }
+        document.getElementById('tip').textContent = `Successfully loaded ${file.name}.`;
+        renderCanvases();
+      }
+      img.onerror = () => {
+        document.getElementById('tip').textContent = `Error loading ${file.name}. The file may be corrupt or an unsupported format.`;
       };
-      img.src = URL.createObjectURL(file);
-      document.getElementById('videoControls').style.display = "none";
+      img.src = imgUrl;
+      
       video.pause();
       cancelAnimationFrame(animationId);
-    }
-    document.getElementById('imgInput').addEventListener('change', imgInputHandler);
-
-    // 上传视频
-    function videoInputHandler(e) {
-      errorMsg.textContent = "";
-      const file = e.target.files[0];
-      if (!file) return;
-      isVideo = true;
-      img = null;
-      video.src = URL.createObjectURL(file);
-      video.load();
-      video.currentTime = 0;
-      video.oncanplay = function() {
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-          errorMsg.textContent = LANGS[langIdx].err1;
-          return;
-        }
-        // 不再重置缩放和位置
-        // imgObj.scale = 1;
-        // scaleSlider.value = 1;
-        // scaleVal.textContent = "1.00";
-        // imgObj.x = (canvas.width - video.videoWidth) / 2;
-        // imgObj.y = (canvas.height - video.videoHeight) / 2;
-        document.getElementById('videoControls').style.display = "";
-        draw();
-      };
-      video.onerror = function() {
-        errorMsg.textContent = LANGS[langIdx].err2;
-      };
-    }
-    document.getElementById('videoInput').addEventListener('change', videoInputHandler);
-
-    // 拖动图片/视频
-    function getPointer(e) {
-      const rect = canvas.getBoundingClientRect();
-      if (e.touches) {
-        return {
-          x: e.touches[0].clientX - rect.left,
-          y: e.touches[0].clientY - rect.top
-        };
-      } else {
-        return {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
-        };
-      }
-    }
-    canvas.addEventListener('mousedown', function(e) {
-      if (!img && !isVideo) return;
-      const {x: mx, y: my} = getPointer(e);
-      const iw = (isVideo ? video.videoWidth : img.width) * imgObj.scale;
-      const ih = (isVideo ? video.videoHeight : img.height) * imgObj.scale;
-      if (mx >= imgObj.x && mx <= imgObj.x + iw && my >= imgObj.y && my <= imgObj.y + ih) {
-        isDragging = true;
-        startX = mx - imgObj.x;
-        startY = my - imgObj.y;
-      }
-    });
-    canvas.addEventListener('mousemove', function(e) {
-      if ((!img && !isVideo) || !isDragging) return;
-      const {x: mx, y: my} = getPointer(e);
-      imgObj.x = mx - startX;
-      imgObj.y = my - startY;
-      draw();
-    });
-    canvas.addEventListener('mouseup', function() { isDragging = false; });
-    canvas.addEventListener('mouseleave', function() { isDragging = false; });
-
-    // 触摸
-    canvas.addEventListener('touchstart', function(e) {
-      if (!img && !isVideo) return;
-      const {x: mx, y: my} = getPointer(e);
-      const iw = (isVideo ? video.videoWidth : img.width) * imgObj.scale;
-      const ih = (isVideo ? video.videoHeight : img.height) * imgObj.scale;
-      if (mx >= imgObj.x && mx <= imgObj.x + iw && my >= imgObj.y && my <= imgObj.y + ih) {
-        isDragging = true;
-        startX = mx - imgObj.x;
-        startY = my - imgObj.y;
-      }
-    });
-    canvas.addEventListener('touchmove', function(e) {
-      if ((!img && !isVideo) || !isDragging) return;
-      e.preventDefault();
-      const {x: mx, y: my} = getPointer(e);
-      imgObj.x = mx - startX;
-      imgObj.y = my - startY;
-      draw();
-    }, { passive: false });
-    canvas.addEventListener('touchend', function() { isDragging = false; });
-
-    // 鼠标滑动对比
-    canvas.addEventListener('mousemove', function(e) {
-      if (!img && !isVideo) return;
-      if (isDragging) return; // 拖动时不触发对比
-      if (!compareEnabled) return;
-      showCompare = true;
-      compareX = getPointer(e).x;
-      draw();
-    });
-    canvas.addEventListener('mouseleave', function() {
-      if (!compareEnabled) return;
-      showCompare = false;
-      draw();
-    });
-    canvas.addEventListener('touchmove', function(e) {
-      if (!img && !isVideo) return;
-      if (isDragging) return;
-      if (!compareEnabled) return;
-      showCompare = true;
-      compareX = getPointer(e).x;
-      draw();
-    });
-    canvas.addEventListener('touchend', function() {
-      if (!compareEnabled) return;
-      showCompare = false;
-      draw();
-    });
-
-    // 视频播放控制
-    document.getElementById('playBtn').onclick = function() {
-      if (video.src) {
-        video.play();
-        startVideoLoop();
-      }
-    };
-    document.getElementById('pauseBtn').onclick = function() {
-      if (video.src) {
-        video.pause();
-        cancelAnimationFrame(animationId);
-      }
     };
 
-    // 视频帧绘制
-    function startVideoLoop() {
-      function loop() {
-        if (isVideo && !video.paused && !video.ended && video.videoWidth > 0 && video.videoHeight > 0) {
-          draw();
-          animationId = requestAnimationFrame(loop);
-        }
-      }
-      loop();
-    }
+    document.getElementById('videoInput').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-    video.addEventListener('play', function() {
-      startVideoLoop();
-    });
-    video.addEventListener('pause', function() {
-      cancelAnimationFrame(animationId);
-    });
-    video.addEventListener('seeked', function() {
-      draw();
-    });
+        isVideo = true;
+        img = null;
+        const videoUrl = setupMedia(file);
 
-    // 绘制函数
-    function draw() {
-      ctx.fillStyle = "#111";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      let source = null, sw = 0, sh = 0;
-      if (img) {
-        source = img;
-        sw = img.width;
-        sh = img.height;
-      } else if (isVideo && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-        source = video;
-        sw = video.videoWidth;
-        sh = video.videoHeight;
-      }
-      if (source) {
-        // 先画像素化
-        ctx.save();
-        // 画像素化网格
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = gridSize;
-        tempCanvas.height = gridSize;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.fillStyle = "#111";
-        tempCtx.fillRect(0, 0, gridSize, gridSize);
-        tempCtx.drawImage(source, imgObj.x * gridSize / canvas.width, imgObj.y * gridSize / canvas.height, sw * imgObj.scale * gridSize / canvas.width, sh * imgObj.scale * gridSize / canvas.height);
-        // 画到主canvas
-        for(let y=0; y<gridSize; y++){
-          for(let x=0; x<gridSize; x++){
-            const pixel = tempCtx.getImageData(x, y, 1, 1).data;
-            ctx.fillStyle = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
-            ctx.fillRect(x*cellSize, y*cellSize, cellSize, cellSize);
+        video.oncanplay = () => {
+          if (mediaJustLoaded) {
+            imgObj.scale = 1;
+            document.getElementById('scaleSlider').value = 1;
+            document.getElementById('scaleVal').textContent = "1.00";
+            imgObj.x = (originalCanvas.width - video.videoWidth) / 2;
+            imgObj.y = (originalCanvas.height - video.videoHeight) / 2;
+            mediaJustLoaded = false;
+            document.getElementById('tip').textContent = `Successfully loaded ${file.name}.`;
           }
+          renderCanvases();
+        };
+        video.onerror = () => {
+            document.getElementById('tip').textContent = `Error loading ${file.name}. The file may be corrupt or an unsupported format.`;
+        };
+        video.src = videoUrl;
+    };
+    
+    document.getElementById('playBtn').onclick = () => video.play();
+    document.getElementById('pauseBtn').onclick = () => video.pause();
+    
+    function videoLoop() {
+        if (!isVideo || video.paused || video.ended) {
+            cancelAnimationFrame(animationId);
+            return;
         }
-        ctx.restore();
-
-        // 画网格线
-        ctx.save();
-        ctx.strokeStyle = "#333";
-        ctx.lineWidth = 1;
-        for(let i=1; i<gridSize; i++){
-          ctx.beginPath();
-          ctx.moveTo(i*cellSize, 0);
-          ctx.lineTo(i*cellSize, canvas.height);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, i*cellSize);
-          ctx.lineTo(canvas.width, i*cellSize);
-          ctx.stroke();
-        }
-        ctx.restore();
-
-        // 滑动对比原图
-        if (compareEnabled && showCompare && compareX > 0) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, 0, compareX, canvas.height);
-          ctx.clip();
-          ctx.drawImage(source, imgObj.x, imgObj.y, sw * imgObj.scale, sh * imgObj.scale);
-          ctx.restore();
-        }
-      }
+        renderCanvases();
+        animationId = requestAnimationFrame(videoLoop);
     }
+    
+    // Event Listeners
+    originalCanvas.addEventListener('mousedown', handlePointerDown);
+    originalCanvas.addEventListener('mousemove', handlePointerMove);
+    originalCanvas.addEventListener('mouseup', handlePointerUp);
+    originalCanvas.addEventListener('mouseleave', handlePointerUp);
+    originalCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+    originalCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointerMove(e); }, { passive: false });
+    originalCanvas.addEventListener('touchend', handlePointerUp);
 
-    // 初始化语言
+    video.addEventListener('play', () => {
+        cancelAnimationFrame(animationId); // Ensure no previous loops are running
+        animationId = requestAnimationFrame(videoLoop);
+    });
+    video.addEventListener('pause', () => cancelAnimationFrame(animationId));
+    video.addEventListener('ended', () => cancelAnimationFrame(animationId));
+    video.addEventListener('seeked', renderCanvases);
+    
+    // Initialization
     setLangByCode('zh');
+    updateControlsVisibility();
+    renderCanvases();
   </script>
 </body>
-</html>
+</html> 

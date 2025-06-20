@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -37,6 +36,17 @@
     }
     video { display: none; }
     .error { color: #ffb3b3; text-align: center; margin: 8px 0; }
+    
+    /* Modal styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 100; }
+    .modal { background: #444; padding: 25px; border-radius: 12px; text-align: center; }
+    .modal h3 { margin-top: 0; }
+    .modal input { padding: 8px; border-radius: 6px; border: 1px solid #666; background: #555; color: #fff; text-align: center; font-size: 1.2em; margin: 10px 0; }
+    .modal button { margin: 5px; }
+    #room-info { margin-top: 15px; }
+    #room-code-display { font-size: 2em; font-weight: bold; color: #b85c5c; letter-spacing: 4px; }
+    #collab-status { position: absolute; top: 50px; right: 18px; font-size: 0.9em; color: #ccc; }
+
   </style>
 </head>
 <body>
@@ -47,6 +57,7 @@
       <option value="no">Norsk</option>
       <option value="ko">한국어</option>
     </select>
+    <div id="collab-status"></div>
     <h2 id="title"></h2>
     <div class="controls-wrapper">
       <div class="upload-btns">
@@ -57,6 +68,7 @@
           <input type="file" accept="video/*,.mp4,.webm,.ogg" id="videoInput">
         </label>
       </div>
+       <button id="inviteBtn" style="display: none;"></button>
       <div id="mediaControls" style="display: none;">
         <div class="controls-row">
           <label id="scaleLabel"></label>
@@ -91,30 +103,71 @@
     <div class="tip" id="tip"></div>
   </div>
 
+  <div class="modal-overlay" id="collabModal">
+    <div class="modal">
+      <h3 id="modalTitle"></h3>
+      <div id="create-room-view">
+        <button id="createRoomBtn"></button>
+      </div>
+      <div id="join-room-view" style="display:none;">
+         <input type="text" id="joinCodeInput" placeholder="4-digit code">
+         <button id="joinRoomBtn"></button>
+      </div>
+      <div id="room-info" style="display:none;">
+          <p id="roomInfoText"></p>
+          <div id="room-code-display"></div>
+      </div>
+      <hr>
+      <button id="switchToJoinBtn"></button>
+      <button id="switchToCreateBtn" style="display:none;"></button>
+      <button id="closeModalBtn"></button>
+    </div>
+  </div>
+
   <script>
     const LANGS = [
       {
         code: "zh", name: "中文", title: "像素预览", originalTitle: "原始图像 (可拖动)",
         imgLabel: "上传图片", videoLabel: "上传视频", scaleLabel: "缩放", gridLabel: "网格",
-        playBtn: "播放", pauseBtn: "暂停", tip: "上传媒体以查看像素化效果。"
+        playBtn: "播放", pauseBtn: "暂停", tip: "上传媒体以查看像素化效果。",
+        inviteBtn: "邀请好友", modalTitle: "协作模式", createRoomBtn: "创建房间",
+        joinCodePlaceholder: "4位邀请码", joinRoomBtn: "加入房间", roomInfoText: "分享此邀请码给好友:",
+        switchToJoinBtn: "已有邀请码?", switchToCreateBtn: "返回创建", closeModalBtn: "关闭",
+        roomCreated: "房间已创建!", userJoined: "一位朋友已加入", userLeft: "一位朋友已离开",
+        collabStatus: "协作中", collabUnavailable: "协作功能不可用"
       },
       {
         code: "en", name: "English", title: "Pixel Preview", originalTitle: "Original Image (Draggable)",
         imgLabel: "Upload Image", videoLabel: "Upload Video", scaleLabel: "Scale", gridLabel: "Grid",
-        playBtn: "Play", pauseBtn: "Pause", tip: "Upload media to see the pixelated effect."
+        playBtn: "Play", pauseBtn: "Pause", tip: "Upload media to see the pixelated effect.",
+        inviteBtn: "Invite Friend", modalTitle: "Collaboration Mode", createRoomBtn: "Create Room",
+        joinCodePlaceholder: "4-digit code", joinRoomBtn: "Join Room", roomInfoText: "Share this code with your friend:",
+        switchToJoinBtn: "Have a code?", switchToCreateBtn: "Back to Create", closeModalBtn: "Close",
+        roomCreated: "Room Created!", userJoined: "A friend has joined", userLeft: "A friend has left",
+        collabStatus: "In collaboration", collabUnavailable: "Collaboration unavailable"
       },
       {
         code: "no", name: "Norsk", title: "Piksel Forhåndsvisning", originalTitle: "Originalbilde (Dra-bart)",
         imgLabel: "Last opp bilde", videoLabel: "Last opp video", scaleLabel: "Skala", gridLabel: "Rutenett",
-        playBtn: "Spill av", pauseBtn: "Pause", tip: "Last opp media for å se den pikselerte effekten."
+        playBtn: "Spill av", pauseBtn: "Pause", tip: "Last opp media for å se den pikselerte effekten.",
+        inviteBtn: "Inviter venner", modalTitle: "Samarbeidsmodus", createRoomBtn: "Opprett rom",
+        joinCodePlaceholder: "4-sifret kode", joinRoomBtn: "Join Room", roomInfoText: "Del denne koden med en venn:",
+        switchToJoinBtn: "Har du en kode?", switchToCreateBtn: "Tilbake til Opprett", closeModalBtn: "Lukk",
+        roomCreated: "Rom opprettet!", userJoined: "En venn har joindt", userLeft: "En venn har forlatt",
+        collabStatus: "I samarbeid", collabUnavailable: "Samarbeid utilgjengelig"
       },
       {
         code: "ko", name: "한국어", title: "픽셀 미리보기", originalTitle: "원본 이미지 (드래그 가능)",
         imgLabel: "이미지 업로드", videoLabel: "비디오 업로드", scaleLabel: "확대/축소", gridLabel: "그리드",
-        playBtn: "재생", pauseBtn: "일시정지", tip: "픽셀화 효과를 보려면 미디어를 업로드하십시오."
+        playBtn: "재생", pauseBtn: "일시정지", tip: "픽셀화 효과를 보려면 미디어를 업로드하십시오.",
+        inviteBtn: "친구 초대", modalTitle: "협업 모드", createRoomBtn: "방 만들기",
+        joinCodePlaceholder: "4자 초대코드", joinRoomBtn: "방 참여", roomInfoText: "이 초대코드를 친구에게 공유하세요:",
+        switchToJoinBtn: "초대코드가 있습니까?", switchToCreateBtn: "만들기로 돌아가기", closeModalBtn: "닫기",
+        roomCreated: "방이 만들어졌습니다!", userJoined: "친구가 참여했습니다", userLeft: "친구가 떠났습니다",
+        collabStatus: "협업 중", collabUnavailable: "협업 기능을 사용할 수 없습니다"
       }
     ];
-
+    
     const pixelCanvas = document.getElementById('pixelCanvas');
     const pCtx = pixelCanvas.getContext('2d');
     const originalCanvas = document.getElementById('originalCanvas');
@@ -123,12 +176,13 @@
     const errorMsg = document.getElementById('errorMsg');
 
     let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize;
+    
     let img = null, isVideo = false, mediaSrc = null;
     let imgObj = { x: 0, y: 0, scale: 1 };
     let isDragging = false, startX, startY;
     let animationId = null;
     let mediaJustLoaded = false;
-
+    
     function setLangByCode(code) {
       langIdx = LANGS.findIndex(l => l.code === code);
       if (langIdx === -1) langIdx = 0;
@@ -142,6 +196,15 @@
       document.getElementById('playBtn').textContent = L.playBtn;
       document.getElementById('pauseBtn').textContent = L.pauseBtn;
       document.getElementById('tip').textContent = L.tip;
+      document.getElementById('inviteBtn').textContent = L.inviteBtn;
+      document.getElementById('modalTitle').textContent = L.modalTitle;
+      document.getElementById('createRoomBtn').textContent = L.createRoomBtn;
+      document.getElementById('joinCodeInput').placeholder = L.joinCodePlaceholder;
+      document.getElementById('joinRoomBtn').textContent = L.joinRoomBtn;
+      document.getElementById('roomInfoText').textContent = L.roomInfoText;
+      document.getElementById('switchToJoinBtn').textContent = L.switchToJoinBtn;
+      document.getElementById('switchToCreateBtn').textContent = L.switchToCreateBtn;
+      document.getElementById('closeModalBtn').textContent = L.closeModalBtn;
       errorMsg.textContent = '';
     }
 
@@ -153,7 +216,7 @@
     }
 
     function renderCanvases() {
-      // 清空画布
+      // Clear canvases
       pCtx.fillStyle = "#111";
       pCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
       oCtx.fillStyle = "#111";
@@ -164,10 +227,11 @@
         const sourceW = isVideo ? video.videoWidth : img.width;
         const sourceH = isVideo ? video.videoHeight : img.height;
 
-        // 原图
+        // --- Draw Original Canvas (800x800) ---
         oCtx.drawImage(source, imgObj.x, imgObj.y, sourceW * imgObj.scale, sourceH * imgObj.scale);
-
-        // 像素化
+        
+        // --- Draw Pixelated Canvas (320x320) ---
+        // This should be a pixelated view of the top-left 320x320 area of the originalCanvas.
         const sx = -imgObj.x / imgObj.scale;
         const sy = -imgObj.y / imgObj.scale;
         const sWidth = pixelCanvas.width / imgObj.scale;
@@ -177,6 +241,8 @@
         avgColorCanvas.width = gridSize;
         avgColorCanvas.height = gridSize;
         const avgColorCtx = avgColorCanvas.getContext('2d');
+        
+        // Draw the calculated source region into the tiny canvas.
         avgColorCtx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, gridSize, gridSize);
 
         // 用圆角和间距绘制像素格子
@@ -194,8 +260,8 @@
           }
         }
       }
-
-      // 画网格线
+      
+      // Draw grid lines on pixel canvas
       pCtx.save();
       pCtx.strokeStyle = "rgba(128, 128, 128, 0.3)";
       pCtx.lineWidth = 1;
@@ -210,22 +276,6 @@
           pCtx.stroke();
       }
       pCtx.restore();
-    }
-
-    // 圆角矩形辅助函数
-    function fillRoundRect(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-      ctx.fill();
     }
 
     function getPointer(e, targetCanvas) {
@@ -395,10 +445,64 @@
     });
     video.addEventListener('seeked', renderCanvases);
     
-    // 初始化
+    // Modal Logic
+    const collabModal = document.getElementById('collabModal');
+    const inviteBtn = document.getElementById('inviteBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+    const joinCodeInput = document.getElementById('joinCodeInput');
+    const switchToJoinBtn = document.getElementById('switchToJoinBtn');
+    const switchToCreateBtn = document.getElementById('switchToCreateBtn');
+    const createRoomView = document.getElementById('create-room-view');
+    const joinRoomView = document.getElementById('join-room-view');
+
+    inviteBtn.addEventListener('click', () => collabModal.style.display = 'flex');
+    closeModalBtn.addEventListener('click', () => collabModal.style.display = 'none');
+    switchToJoinBtn.addEventListener('click', () => {
+      createRoomView.style.display = 'none';
+      switchToJoinBtn.style.display = 'none';
+      joinRoomView.style.display = 'block';
+      switchToCreateBtn.style.display = 'inline-block';
+    });
+    switchToCreateBtn.addEventListener('click', () => {
+      createRoomView.style.display = 'block';
+      switchToJoinBtn.style.display = 'inline-block';
+      joinRoomView.style.display = 'none';
+      switchToCreateBtn.style.display = 'none';
+    });
+
+    createRoomBtn.addEventListener('click', () => {
+        // Implementation of creating a room
+    });
+
+    joinRoomBtn.addEventListener('click', () => {
+        const code = joinCodeInput.value;
+        if (code) {
+            // Implementation of joining a room
+        }
+    });
+    
+    // Initialization
     setLangByCode('zh');
     updateControlsVisibility();
     renderCanvases();
+
+    // 在 renderCanvases 外部加上 fillRoundRect 辅助函数
+    function fillRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+    }
   </script>
 </body>
-</html>
+</html> 

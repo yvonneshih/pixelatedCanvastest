@@ -23,22 +23,23 @@
       gap: 10px;
       margin-bottom: 8px;
     }
-    #pixelControlsRow label, #pixelControlsRow select, #pixelControlsRow input[type=range], #pixelControlsRow span {
+    #pixelControlsRow label, #pixelControlsRow select, #pixelControlsRow input[type=range], #pixelControlsRow span,
+    #colorControlsRow label, #colorControlsRow input[type=range], #colorControlsRow span {
       margin-right: 6px;
       margin-bottom: 2px;
       font-size: 1em;
     }
-    #pixelControlsRow label {
+    #pixelControlsRow label, #colorControlsRow label {
       min-width: 60px;
       text-align: right;
     }
-    #pixelControlsRow input[type=range] {
-      width: 90px;
+    #pixelControlsRow input[type=range], #colorControlsRow input[type=range] {
+      width: 80px;
     }
     #pixelControlsRow select {
       min-width: 80px;
     }
-    #pixelControlsRow span {
+    #pixelControlsRow span, #colorControlsRow span {
       min-width: 36px;
       display: inline-block;
       text-align: center;
@@ -101,6 +102,17 @@
         <input type="range" id="pixelSizeSlider" min="0.5" max="1" step="0.01" value="1">
         <span id="pixelSizeVal">1.00</span>
       </div>
+      <div class="controls-row" id="colorControlsRow">
+        <label id="brightnessLabel"></label>
+        <input type="range" id="brightnessSlider" min="-100" max="100" value="0" step="1">
+        <span id="brightnessVal">0</span>
+        <label id="saturationLabel"></label>
+        <input type="range" id="saturationSlider" min="-100" max="100" value="0" step="1">
+        <span id="saturationVal">0</span>
+        <label id="contrastLabel"></label>
+        <input type="range" id="contrastSlider" min="-100" max="100" value="0" step="1">
+        <span id="contrastVal">0</span>
+      </div>
     </div>
     <canvas id="pixelCanvas" width="320" height="320"></canvas>
     <div id="originalCanvasWrapper" style="display: none;">
@@ -121,25 +133,29 @@
         code: "zh", name: "中文", title: "像素预览", originalTitle: "原始图像 (可拖动)",
         imgLabel: "上传图片", videoLabel: "上传视频", scaleLabel: "缩放", gridLabel: "网格",
         playBtn: "播放", pauseBtn: "暂停", tip: "上传媒体以查看像素化效果。",
-        shapeLabel: "像素形状", radiusLabel: "圆角", pixelSizeLabel: "像素大小", shapeSquare: "直角方格", shapeRound: "圆角方格"
+        shapeLabel: "像素形状", radiusLabel: "圆角", pixelSizeLabel: "像素大小", shapeSquare: "直角方格", shapeRound: "圆角方格",
+        brightnessLabel: "亮度", saturationLabel: "饱和度", contrastLabel: "对比度"
       },
       {
         code: "en", name: "English", title: "Pixel Preview", originalTitle: "Original Image (Draggable)",
         imgLabel: "Upload Image", videoLabel: "Upload Video", scaleLabel: "Scale", gridLabel: "Grid",
         playBtn: "Play", pauseBtn: "Pause", tip: "Upload media to see the pixelated effect.",
-        shapeLabel: "Pixel Shape", radiusLabel: "Radius", pixelSizeLabel: "Pixel Size", shapeSquare: "Square", shapeRound: "Round"
+        shapeLabel: "Pixel Shape", radiusLabel: "Radius", pixelSizeLabel: "Pixel Size", shapeSquare: "Square", shapeRound: "Round",
+        brightnessLabel: "Brightness", saturationLabel: "Saturation", contrastLabel: "Contrast"
       },
       {
         code: "no", name: "Norsk", title: "Piksel Forhåndsvisning", originalTitle: "Originalbilde (Dra-bart)",
         imgLabel: "Last opp bilde", videoLabel: "Last opp video", scaleLabel: "Skala", gridLabel: "Rutenett",
         playBtn: "Spill av", pauseBtn: "Pause", tip: "Last opp media for å se den pikselerte effekten.",
-        shapeLabel: "Pikselform", radiusLabel: "Radius", pixelSizeLabel: "Pikselstørrelse", shapeSquare: "Rektangel", shapeRound: "Sirkel"
+        shapeLabel: "Pikselform", radiusLabel: "Radius", pixelSizeLabel: "Pikselstørrelse", shapeSquare: "Rektangel", shapeRound: "Sirkel",
+        brightnessLabel: "Lysstyrke", saturationLabel: "Metning", contrastLabel: "Kontrast"
       },
       {
         code: "ko", name: "한국어", title: "픽셀 미리보기", originalTitle: "원본 이미지 (드래그 가능)",
         imgLabel: "이미지 업로드", videoLabel: "비디오 업로드", scaleLabel: "확대/축소", gridLabel: "그리드",
         playBtn: "재생", pauseBtn: "일시정지", tip: "픽셀화 효과를 보려면 미디어를 업로드하십시오.",
-        shapeLabel: "픽셀 모양", radiusLabel: "반지름", pixelSizeLabel: "픽셀 크기", shapeSquare: "직角 사각형", shapeRound: "둥근 사각형"
+        shapeLabel: "픽셀 모양", radiusLabel: "반지름", pixelSizeLabel: "픽셀 크기", shapeSquare: "직각 사각형", shapeRound: "둥근 사각형",
+        brightnessLabel: "밝기", saturationLabel: "채도", contrastLabel: "대비"
       }
     ];
     const pixelCanvas = document.getElementById('pixelCanvas');
@@ -149,6 +165,7 @@
     const video = document.getElementById('video');
     const errorMsg = document.getElementById('errorMsg');
     let langIdx = 0, gridSize = 8, cellSize = pixelCanvas.width / gridSize, pixelShape = 'round', cellRadius = 13, pixelSizeRatio = 1;
+    let brightness = 0, saturation = 0, contrast = 0;
     let img = null, isVideo = false, mediaSrc = null;
     let imgObj = { x: 0, y: 0, scale: 1 };
     let isDragging = false, startX, startY;
@@ -170,6 +187,9 @@
       document.getElementById('shapeLabel').textContent = L.shapeLabel || '像素形状';
       document.getElementById('radiusLabel').textContent = L.radiusLabel || '圆角';
       document.getElementById('pixelSizeLabel').textContent = L.pixelSizeLabel || '像素大小';
+      document.getElementById('brightnessLabel').textContent = L.brightnessLabel || '亮度';
+      document.getElementById('saturationLabel').textContent = L.saturationLabel || '饱和度';
+      document.getElementById('contrastLabel').textContent = L.contrastLabel || '对比度';
       document.querySelector('#shapeSelect option[value="square"]').textContent = L.shapeSquare || '直角方格';
       document.querySelector('#shapeSelect option[value="round"]').textContent = L.shapeRound || '圆角方格';
       errorMsg.textContent = '';
@@ -204,7 +224,8 @@
         for (let y = 0; y < gridSize; y++) {
           for (let x = 0; x < gridSize; x++) {
             const pixel = avgColorCtx.getImageData(x, y, 1, 1).data;
-            const color = `rgba(${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]/255})`;
+            const [r, g, b] = adjustColor(pixel[0], pixel[1], pixel[2]);
+            const color = `rgba(${r},${g},${b},${pixel[3]/255})`;
             const px = x * cellSize + (cellSize - cellSize * pixelSizeRatio) / 2 + gap/2;
             const py = y * cellSize + (cellSize - cellSize * pixelSizeRatio) / 2 + gap/2;
             const size = cellSize * pixelSizeRatio - gap;
@@ -227,6 +248,33 @@
           pCtx.stroke();
       }
       pCtx.restore();
+    }
+    function adjustColor(r, g, b) {
+        // Brightness
+        if (brightness !== 0) {
+            r += brightness;
+            g += brightness;
+            b += brightness;
+        }
+        // Contrast
+        if (contrast !== 0) {
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+            r = factor * (r - 128) + 128;
+            g = factor * (g - 128) + 128;
+            b = factor * (b - 128) + 128;
+        }
+        // Saturation
+        if (saturation !== 0) {
+            const sat = 1 + saturation / 100.0;
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            r = gray + sat * (r - gray);
+            g = gray + sat * (g - gray);
+            b = gray + sat * (b - gray);
+        }
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+        return [r, g, b];
     }
     function getPointer(e, targetCanvas) {
       const rect = targetCanvas.getBoundingClientRect();
@@ -305,6 +353,21 @@
     document.getElementById('pixelSizeSlider').oninput = function() {
       pixelSizeRatio = parseFloat(this.value);
       document.getElementById('pixelSizeVal').textContent = pixelSizeRatio.toFixed(2);
+      renderCanvases();
+    };
+    document.getElementById('brightnessSlider').oninput = function() {
+      brightness = parseInt(this.value, 10);
+      document.getElementById('brightnessVal').textContent = brightness;
+      renderCanvases();
+    };
+    document.getElementById('saturationSlider').oninput = function() {
+      saturation = parseInt(this.value, 10);
+      document.getElementById('saturationVal').textContent = saturation;
+      renderCanvases();
+    };
+    document.getElementById('contrastSlider').oninput = function() {
+      contrast = parseInt(this.value, 10);
+      document.getElementById('contrastVal').textContent = contrast;
       renderCanvases();
     };
     function setupMedia(file) {
@@ -399,9 +462,16 @@
     shapeSelect.value = pixelShape;
     document.getElementById('pixelSizeSlider').value = pixelSizeRatio;
     document.getElementById('pixelSizeVal').textContent = pixelSizeRatio.toFixed(2);
+    document.getElementById('brightnessSlider').value = brightness;
+    document.getElementById('brightnessVal').textContent = brightness;
+    document.getElementById('saturationSlider').value = saturation;
+    document.getElementById('saturationVal').textContent = saturation;
+    document.getElementById('contrastSlider').value = contrast;
+    document.getElementById('contrastVal').textContent = contrast;
     updateControlsVisibility();
     renderCanvases();
     function fillRoundRect(ctx, x, y, w, h, r) {
+      if (r <= 0) { ctx.fillRect(x, y, w, h); return; }
       ctx.beginPath();
       ctx.moveTo(x + r, y);
       ctx.lineTo(x + w - r, y);
